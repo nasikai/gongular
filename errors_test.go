@@ -13,7 +13,13 @@ import (
 
 	"bytes"
 
+	"mime/multipart"
+
+	"io/ioutil"
+	"net/http/httptest"
+
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type expectingIntParam struct {
@@ -288,7 +294,8 @@ func TestInvalidErrors_Body(t *testing.T) {
 
 type dummyFileHandler struct {
 	Form struct {
-		File1 *UploadedFile
+		File1             *UploadedFile
+		NotARelevantValue int
 	}
 }
 
@@ -300,12 +307,27 @@ func (d *dummyFileHandler) Handle(c *Context) error {
 func TestInvalidErrors_NoFileSupplied(t *testing.T) {
 	e := newEngineTest()
 
-	e.GetRouter().POST("/uuu", &dummyFileHandler{})
+	e.GetRouter().POST("/upload", &dummyFileHandler{})
 
-	b := bytes.NewBufferString("not a jason")
+	// Construct the body, by using a multipart writer
+	var b bytes.Buffer
+	w := multipart.NewWriter(&b)
+	err := w.WriteField("NotARelevantValue", "35")
+	assert.NoError(t, err)
+	w.Close()
 
+	// Manual construction of the request
+	resp := httptest.NewRecorder()
+	req, err := http.NewRequest(http.MethodPost, "/upload", &b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", w.FormDataContentType())
 
-	resp, content := respWrap(t, e, "/uuu", http.MethodPost, b)
+	e.GetHandler().ServeHTTP(resp, req)
+	p, err := ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+	content := string(p)
 
 	assert.Equal(t, http.StatusBadRequest, resp.Code)
 	assert.NotEqual(t, `"WOW"`, content)

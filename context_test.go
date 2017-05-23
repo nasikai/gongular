@@ -1,4 +1,4 @@
-package gongular
+package gongular2
 
 import (
 	"io/ioutil"

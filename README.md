@@ -33,8 +33,92 @@ func(w *WelcomeMessage) Handle(c *gongular.Context) error {
 
 g := gongular.NewEngine()
 g.GET("/", &WelcomeMessage{})
+g.ListenAndServe(":8000")
 ```
 
 ## How to Use
 
-All HTTP handlers in gongular are structs with `Handle(c *gongular.Context) error` function implemented. 
+All HTTP handlers in gongular are structs with `Handle(c *gongular.Context) error` function or in other words `RequestHandler` interface, implemented. Request handler objects are flexible. They can have various fields, where some of the fields with specific names are special. For instance, if you want to bind the path parameters, your handler object must have field named `Param` which is a flat struct. Also you can have a `Query` field which also maps to query parameters. `Body` field lets you map to JSON body, and `Form` field lets you bind into form submissions with files.
+
+```go
+type MyHandler struct {
+    Param struct {
+        UserID int       
+    }
+    Query struct {
+        Name  string
+        Age   int
+        Level float64
+    }
+    Body struct {
+        Comment string
+        Choices []string
+        Address struct {
+            City    string
+            Country string
+            Hello   string            
+        }
+    }
+}
+func(m *MyHandler) Handle(c *gongular.Context) error {
+    c.SetBody("Wow so much params")
+    return nil
+}
+```
+
+## Path Parameters
+
+We use julienschmidt/httprouter to multiplex requests and do parametric binding to requests. So the format :VariableName, *somepath is supported in paths. Note that, you can use valid struct tag to validate parameters.
+
+```go
+type PathParamHandler struct {
+    Param struct {
+        Username string
+    }
+}
+func(p *PathParamHandler) Handle(c *Context) error {
+    c.SetBody(p.Param.Username)
+    return nil
+}
+```
+
+## Query Parameters
+
+Query parameter is very similar to path parameters, the only difference the field name should be `Query` and it should also be a flat struct with no inner parameters or arrays.
+
+```go
+type QueryParamHandler struct {
+    Query struct {
+        Username string
+        Age int
+    }
+}
+func(p *QueryParamHandler) Handle(c *Context) error {
+    println(p.Param.Age)
+    c.SetBody(p.Param.Username)
+    return nil
+}
+```
+
+## JSON Request Body 
+
+## Forms and File Uploading
+
+## Routes and Grouping
+
+Routes can have multiple handlers, called middlewares, which might be useful in grouping the requests and doing preliminary work before some routes. For example, the following grouping and routing is valid:  
+
+## Field Validation
+
+We use asaskevich/govalidator as a validation framework. If the supplied input does not pass the validation step, http.StatusBadRequest (400) is returned the user with the cause. Validation can be used in Query, Param, Body or Form type inputs.
+
+## Dependency Injection
+
+One of the thing that makes gongular from other frameworks is that it provides safe value injection to route handlers. It can be used to store database connections, or some other external utility that you want that to be avilable in your handler, but do not want to make it global, or just get it from some other global function that might pollute the space. Supplied dependencies are provided as-is to route handlers and they are private to supplied router, nothing is global.
+
+
+
+## gongular.Context struct
+ 
+
+

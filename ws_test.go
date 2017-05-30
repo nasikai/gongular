@@ -1,4 +1,4 @@
-package gongular2
+package gongular
 
 import (
 	"fmt"
